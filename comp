@@ -1,0 +1,60 @@
+#!/bin/bash
+
+release=$release
+gr='\033[1;4;32m'
+nc='\033[0m'
+rd='\033[1;4;31m'
+tools=~/comp-tools
+out=~/Downloads/Kernel/dump
+toolchain=~/arm-eabi-4.8/bin
+
+rm ~/Downloads/Kernel/s4/system/lib/modules/*
+rm arch/arm/boot/zImage
+echo -e "${gr}Cleanup Files${nc}"
+
+read -p "ENTER RELEASE VERSION : " release
+
+export KBUILD_BUILD_VERSION="$release"
+make -j$(grep -c ^processor /proc/cpuinfo)
+
+if [ -f arch/arm/boot/zImage ]; then
+find -name '*.ko' -exec cp -av {} ~/Downloads/Kernel/s4/system/lib/modules \;
+else 
+	echo -e "${rd}ERROR: COMPILE ERROR${nc}"
+	exit 0
+fi
+
+cd ramdisk
+
+find . | cpio -H newc -o | $tools/lz4 -l stdin stdout > $out/ramdisk-s4.cpio.lz4
+
+cd $tools
+
+if [ -f arch/arm/boot/zImage-dtb ]; then 
+./dtbTool -o $out/dt.img -s 2048 -p ~/g2/scripts/dtc/ ~/g2/arch/arm/boot/
+fi
+
+if [ -f $out/ramdisk-s4.cpio.lz4 ]; then
+./mkbootimg --kernel ~/s4/arch/arm/boot/zImage --ramdisk $out/ramdisk-s4.cpio.lz4 --cmdline "console=null androidboot.hardware=qcom user_debug=23 msm_rtb.filter=0x3F ehci-hcd.park=3" --base 0x80200000 --pagesize 2048 --offset 0x02000000 -o ~/Downloads/Kernel/s4/boot.img
+echo -e "${gr}boot.img compiled${nc}"
+else
+	echo -e "${rd}ERROR: RAMDISK ERROR${nc}"
+	exit 0
+fi
+
+#python2 open_bump.py -a ~/Downloads/g2/boot.img 
+
+#mv ~/Downloads/g2/boot_bumped.img ~/Downloads/g2/boot.img
+#echo -e "${gr}boot.img patched${nc}"
+
+cd ~/Downloads/Kernel/s4
+
+modules=/system/lib/modules/*ko
+for f in $modules
+do
+$toolchain/arm-eabi-strip --strip-unneeded ~/Downloads/Kernel/s4/$modules
+done
+
+zip -r i9505-lucid-b$release.zip META-INF system boot.img -x \*~ 
+echo -e "${gr}Kernel Release $release is ready to flash${nc}"
+
