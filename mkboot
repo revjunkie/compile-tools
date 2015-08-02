@@ -214,9 +214,19 @@ ramdisk=ramdisk
 print_info
 
 #write info to img_info,decompression ramdisk.gz
-printf "kernel=zImage\nramdisk=ramdisk\n${dt_name}page_size=$page_size\n\
-kernel_size=$kernel_size\nramdisk_size=$ramdisk_size\n${dt_size}base_addr=$base_addr\nkernel_offset=$kernel_offset\n\
-ramdisk_offset=$ramdisk_offset\ntags_offset=$tags_offset\ncmd_line=\"$cmd_line\"\n" > img_info
+#printf "kernel=zImage\nramdisk=ramdisk\n${dt_name}page_size=$page_size\n\
+#kernel_size=$kernel_size\nramdisk_size=$ramdisk_size\n${dt_size}base_addr=$base_addr\nkernel_offset=$kernel_offset\n\
+#ramdisk_offset=$ramdisk_offset\ntags_offset=$tags_offset\ncmd_line=\"$cmd_line\"\n" > img_info
+
+echo $page_size > page_size
+echo $kernel_size > kernel_size
+echo $ramdisk_size > ramdisk_size
+echo $base_addr > base_addr
+echo $kernel_offset > kernel_offset
+echo $ramdisk_offset > ramdisk_offset
+echo $tags_offset > tags_offset
+echo $cmd_line > cmd_line
+
 mkdir ramdisk
 cd ramdisk
 
