@@ -3,61 +3,95 @@
 GR='\033[1;4;32m'
 NC='\033[0m'
 RD='\033[1;4;31m'
-TOOLS=~/comp-tools
-OUT=~/Downloads/Kernel/dump
-TOOLCHAIN=~/toolchain/arm-eabi-4.9.3/bin
-OUTSRC=~/Downloads/Kernel/s4-aosp
+MODEL=${PWD##*/}
+TOOLS=~/kernel/comp-tools
+DUMP=~/Downloads/Kernel/zdump
+TOOLCHAIN=~/kernel/toolchain/arm-eabi-4.8.5/bin
+OUTSRC=~/Downloads/Kernel/$MODEL-out
+ZIMAGE=~/kernel/$MODEL/arch/arm/boot
 
-rm -f ~/Downloads/Kernel/s4-aosp/system/lib/modules/*
-rm -f arch/arm/boot/zImage
-rm -f $OUT/ramdisk-s4-aosp.cpio.lz4
+# Make dir
+[ ! -d ~/Downloads/Kernel ] && mkdir ~/Downloads/Kernel
+[ ! -d $DUMP ] && mkdir $DUMP
+[ ! -d $OUTSRC ] && mkdir $OUTSRC
+
+rm -f $OUTSRC/system/lib/modules/*
+rm -f $ZIMAGE/zImage
+rm -f $DUMP/dt.img
+rm -f $DUMP/ramdisk-$MODEL.cpio.lz4
 echo -e "${GR}Cleanup Files${NC}"
 
 read -p "ENTER RELEASE VERSION : " release
-if [ -f $OUTSRC/i9505-lucid-aosp-b$release.zip ]; then
-	rm -rf $OUTSRC/i9505-lucid-aosp-b$release.zip
+if [ -f $OUTSRC/$MODEL-lucid-b$release.zip ]; then
+	rm -rf $OUTSRC/$MODEL-lucid-b$release.zip
 fi
 export KBUILD_BUILD_VERSION="$release"
 make -j$(grep -c ^processor /proc/cpuinfo)
 
-if [ -f arch/arm/boot/zImage ]; then
-find -name '*.ko' -exec cp -av {} $OUTSRC/system/lib/modules \;
+# Copy Modules to Out Folder
+if [ -f $ZIMAGE/zImage ]; then
+        find -name '*.ko' -exec cp -av {} $OUTSRC/system/lib/modules \;
 else 
 	echo -e "${RD}ERROR: COMPILE ERROR${NC}"
 	exit 0
 fi
 
-cd ~/Downloads/Kernel/s4-aosp/ramdisk
+# Repack Ramdisk
+if [ ! -d $DUMP/ramdisk-$MODEL ]; then
+        if [ ! -f boot.img ]; then
+                echo -e "${RD}No Boot Image Dump${NC}"
+                exit 0
+        fi
+        $TOOLS/./mkboot boot.img $DUMP/ramdump-$MODEL
+        cp -ar $DUMP/ramdump-$MODEL/ramdisk $DUMP/ramdisk-$MODEL
+        mv boot.img $DUMP/boot-$MODEL.img
+fi  
 
-find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $OUT/ramdisk-s4-aosp.cpio.lz4
+cd $DUMP/ramdisk-$MODEL
 
-cd $TOOLS
+find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODEL.cpio.lz4
 
-if [ -f ~/s4-aosp/arch/arm/boot/zImage-dtb ]; then 
-./dtbTool -o $OUT/dt.img -s 2048 -p ~/g2/scripts/dtc/ ~/g2/arch/arm/boot/
-fi
-
-if [ -f $OUT/ramdisk-s4-aosp.cpio.lz4 ]; then
-./mkbootimg --kernel ~/s4-aosp/arch/arm/boot/zImage --ramdisk $OUT/ramdisk-s4-aosp.cpio.lz4 --cmdline "console=null androidboot.hardware=qcom user_debug=31 msm_rtb.filter=0x3F ehci-hcd.park=3" --base 0x80200000 --pagesize 2048 --offset 0x02000000 -o $OUTSRC/boot.img
-echo -e "${GR}boot.img compiled${NC}"
+# Rebuilt Boot.img
+if [ -f $ZIMAGE/zImage-dtb ]; then 
+$TOOLS/./dtbTool -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
+        if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
+        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
+        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
+        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
+        --dt $DUMP/dt.img --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
+        echo -e "${GR}boot.img compiled${NC}"
+        else
+	        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
+	        exit 0
+        fi
 else
-	echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
-	exit 0
+       if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
+        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
+        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
+        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
+        --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
+        echo -e "${GR}boot.img compiled${NC}"
+        else
+	        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
+	        exit 0
+        fi
 fi
 
-#python2 open_bump.py -a ~/Downloads/g2/boot.img 
+# Bump Boot.img for locked bootloaders
+#cd $TOOLS
 
+#python2 open_bump.py -a $OUTSRC/boot.img
 #mv ~/Downloads/g2/boot_bumped.img ~/Downloads/g2/boot.img
-#echo -e "${gr}boot.img patched${nc}"
+#echo -e "${GR}boot.img patched${NC}"
 
 cd $OUTSRC
 
-MODULES=/system/lib/modules/*ko
+MODULES=/system/lib/modules/*.ko
 for f in $MODULES
 do
-$TOOLCHAIN/arm-eabi-strip --strip-unneeded ~/Downloads/Kernel/s4-aosp/$MODULES
+$TOOLCHAIN/arm-eabi-strip --strip-unneeded $OUTSRC/$MODULES
 done
 
-zip -r i9505-lucid-aosp-b$release.zip META-INF system boot.img -x \*~ 
+zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~ 
 echo -e "${GR}Kernel Release $release is ready to flash${NC}"
 
