@@ -26,12 +26,12 @@ if [ -f $OUTSRC/$MODEL-lucid-b$release.zip ]; then
 	rm -rf $OUTSRC/$MODEL-lucid-b$release.zip
 fi
 export KBUILD_BUILD_VERSION="$release"
-make -j$(grep -c ^processor /proc/cpuinfo)
+make -j$[$(grep -c ^processor /proc/cpuinfo)-1]
 
 # Copy Modules to Out Folder
 if [ -f $ZIMAGE/zImage ]; then
         find -name '*.ko' -exec cp -av {} $OUTSRC/system/lib/modules \;
-else 
+else
 	echo -e "${RD}ERROR: COMPILE ERROR${NC}"
 	exit 0
 fi
@@ -45,14 +45,37 @@ if [ ! -d $DUMP/ramdisk-$MODEL ]; then
         $TOOLS/./mkboot boot.img $DUMP/ramdump-$MODEL
         cp -ar $DUMP/ramdump-$MODEL/ramdisk $DUMP/ramdisk-$MODEL
         mv boot.img $DUMP/boot-$MODEL.img
-fi  
+fi
 
+# For Xperia Devices
+if [ -f README_Xperia ]; then
+	cd $DUMP/ramdisk-$MODEL
+	find . | cpio -H newc -o > $DUMP/ramdisk.cpio
+	cp $DUMP/ramdisk.cpio $DUMP/ramdump-$MODEL/ramdisk/sbin/
+	cd $DUMP/ramdump-$MODEL/ramdisk
+	find . | cpio -H newc -o | gzip > $DUMP/ramdisk-$MODEL.cpio.gz
+	if [ -f $ZIMAGE/zImage-dtb ]; then
+	$TOOLS/xperia/./dtbToolCM --force-v2 -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
+		if [ -f $DUMP/ramdisk-$MODEL.cpio.gz ]; then
+		$TOOLS/xperia/./mkbootimg --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
+		--base `cat $DUMP/ramdump-$MODEL/base_addr` \
+		--kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.gz \
+		--ramdisk_offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` \
+		-o $OUTSRC/boot.img \
+		--dt $DUMP/dt.img --tags_offset `cat $DUMP/ramdump-$MODEL/tags_offset`
+		echo -e "${GR}boot.img compiled${NC}"
+        else
+	        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
+	        exit 0
+        	fi
+	fi
+else
 cd $DUMP/ramdisk-$MODEL
 
 find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODEL.cpio.lz4
 
 # Rebuilt Boot.img
-if [ -f $ZIMAGE/zImage-dtb ]; then 
+if [ -f $ZIMAGE/zImage-dtb ]; then
 $TOOLS/./dtbTool -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
         if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
         $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
@@ -76,7 +99,7 @@ else
 	        exit 0
         fi
 fi
-
+fi
 # Bump Boot.img for locked bootloaders
 #cd $TOOLS
 
@@ -92,6 +115,5 @@ do
 $TOOLCHAIN/arm-eabi-strip --strip-unneeded $OUTSRC/$MODULES
 done
 
-zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~ 
+zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~
 echo -e "${GR}Kernel Release $release is ready to flash${NC}"
-
