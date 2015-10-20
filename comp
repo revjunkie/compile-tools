@@ -6,7 +6,8 @@ RD='\033[1;4;31m'
 MODEL=${PWD##*/}
 TOOLS=~/kernel/comp-tools
 DUMP=~/Downloads/Kernel/zdump
-TOOLCHAIN=~/kernel/toolchain/arm-eabi-4.8.5/bin
+GCC=$(ls ~/kernel/toolchain/)
+TOOLCHAIN=~/kernel/toolchain/$GCC/bin
 OUTSRC=~/Downloads/Kernel/$MODEL-out
 ZIMAGE=~/kernel/$MODEL/arch/arm/boot
 
@@ -74,45 +75,46 @@ cd $DUMP/ramdisk-$MODEL
 
 find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODEL.cpio.lz4
 
-# Rebuilt Boot.img
-if [ -f $ZIMAGE/zImage-dtb ]; then
-$TOOLS/./dtbTool -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
-        if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
-        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
-        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
-        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
-        --dt $DUMP/dt.img --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
-        echo -e "${GR}boot.img compiled${NC}"
-        else
-	        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
-	        exit 0
-        fi
-else
-       if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
-        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
-        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
-        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
-        --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
-        echo -e "${GR}boot.img compiled${NC}"
-        else
-	        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
-	        exit 0
-        fi
-fi
+	# Rebuilt Boot.img
+	if [ -f $ZIMAGE/zImage-dtb ]; then
+	$TOOLS/./dtbTool -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
+	        if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
+	        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
+	        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
+	        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
+	        --dt $DUMP/dt.img --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
+	        echo -e "${GR}boot.img compiled${NC}"
+	        else
+		        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
+		        exit 0
+	        fi
+	else
+	       if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
+	        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
+	        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
+	        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
+	        --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
+	        echo -e "${GR}boot.img compiled${NC}"
+	        else
+		        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
+		        exit 0
+	        fi
+	fi
 fi
 # Bump Boot.img for locked bootloaders
-#cd $TOOLS
+if [ -f $ZIMAGE/msm8974-g2* ]; then
+cd $TOOLS
 
-#python2 open_bump.py -a $OUTSRC/boot.img
+python2 open_bump.py -a $OUTSRC/boot.img
 #mv ~/Downloads/g2/boot_bumped.img ~/Downloads/g2/boot.img
-#echo -e "${GR}boot.img patched${NC}"
-
+echo -e "${GR}boot.img patched${NC}"
+fi
 cd $OUTSRC
 
 MODULES=/system/lib/modules/*.ko
 for f in $MODULES
 do
-$TOOLCHAIN/arm-eabi-strip --strip-unneeded $OUTSRC/$MODULES
+$TOOLCHAIN/$(ls $TOOLCHAIN | grep strip) --strip-unneeded $OUTSRC/$MODULES
 done
 
 zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~
