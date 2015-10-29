@@ -5,14 +5,14 @@ NC='\033[0m'
 RD='\033[1;4;31m'
 MODEL=${PWD##*/}
 TOOLS=~/kernel/comp-tools
-DUMP=~/Downloads/Kernel/zdump
+DUMP=~/kernel/out/zdump
 GCC=$(ls ~/kernel/toolchain/)
 TOOLCHAIN=~/kernel/toolchain/$GCC/bin
-OUTSRC=~/Downloads/Kernel/$MODEL-out
+OUTSRC=~/kernel/out/$MODEL-out
 ZIMAGE=~/kernel/$MODEL/arch/arm/boot
 
 # Make dir
-[ ! -d ~/Downloads/Kernel ] && mkdir ~/Downloads/Kernel
+[ ! -d ~/kernel/out ] && mkdir ~/kernel/out
 [ ! -d $DUMP ] && mkdir $DUMP
 [ ! -d $OUTSRC ] && mkdir $OUTSRC
 
