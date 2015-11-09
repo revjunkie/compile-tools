@@ -51,10 +51,10 @@ fi
 # For Xperia Devices
 if [ -f README_Xperia ]; then
 	cd $DUMP/ramdisk-$MODEL
-	find . | cpio -H newc -o > $DUMP/ramdisk.cpio
+	find * | cpio -H newc -o > $DUMP/ramdisk.cpio
 	cp $DUMP/ramdisk.cpio $DUMP/ramdump-$MODEL/ramdisk/sbin/
 	cd $DUMP/ramdump-$MODEL/ramdisk
-	find . | cpio -H newc -o | gzip > $DUMP/ramdisk-$MODEL.cpio.gz
+	find * | cpio -H newc -o | gzip > $DUMP/ramdisk-$MODEL.cpio.gz
 	if [ -f $ZIMAGE/zImage-dtb ]; then
 	$TOOLS/xperia/./dtbToolCM --force-v2 -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
 		if [ -f $DUMP/ramdisk-$MODEL.cpio.gz ]; then
