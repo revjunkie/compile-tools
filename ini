@@ -1,0 +1,8 @@
+#!/bin/bash
+
+TOOL=arm-none-4.9
+echo $TOOL > ~/kernel/out/zdump/chain
+export ARCH=arm
+export PATH=/home/revjunkie/kernel/toolchain/$TOOL/bin/:$PATH
+export CROSS_COMPILE=arm-none-eabi-
+

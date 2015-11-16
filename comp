@@ -6,7 +6,7 @@ RD='\033[1;4;31m'
 MODEL=${PWD##*/}
 TOOLS=~/kernel/comp-tools
 DUMP=~/kernel/out/zdump
-GCC=$(ls ~/kernel/toolchain/)
+GCC=$(cat $DUMP/chain)
 TOOLCHAIN=~/kernel/toolchain/$GCC/bin
 OUTSRC=~/kernel/out/$MODEL-out
 ZIMAGE=~/kernel/$MODEL/arch/arm/boot
@@ -111,11 +111,8 @@ echo -e "${GR}boot.img patched${NC}"
 fi
 cd $OUTSRC
 
-MODULES=/system/lib/modules/*.ko
-for f in $MODULES
-do
-$TOOLCHAIN/$(ls $TOOLCHAIN | grep strip) --strip-unneeded $OUTSRC/$MODULES
-done
+MODULES=system/lib/modules/
+find $MODULES -iname "*.ko" -exec $TOOLCHAIN/$(ls $TOOLCHAIN | grep strip) --strip-unneeded {} \;
 
 zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~
 echo -e "${GR}Kernel Release $release is ready to flash${NC}"
