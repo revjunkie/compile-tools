@@ -1,9 +1,9 @@
 #!/bin/bash
 
-GR='\033[1;4;32m'
+GR='\033[1;32m'
 NC='\033[0m'
 RD='\033[1;4;31m'
-MODEL=${PWD##*/}
+MODEL=$(basename ~+)
 TOOLS=~/kernel/comp-tools
 DUMP=~/kernel/out/zdump
 GCC=$(cat $DUMP/chain)
@@ -16,19 +16,17 @@ ZIMAGE=~/kernel/$MODEL/arch/arm/boot
 [ ! -d $DUMP ] && mkdir $DUMP
 [ ! -d $OUTSRC ] && mkdir $OUTSRC
 
+function cleanup {
+echo -e "${GR}-----------------${NC}"
+echo -e "${GR}| Cleanup Files |${NC}"
+echo -e "${GR}-----------------${NC}"
 rm -f $OUTSRC/system/lib/modules/*
 rm -f $ZIMAGE/zImage
 rm -f $DUMP/dt.img
 rm -f $DUMP/ramdisk-$MODEL.cpio.lz4
-echo -e "${GR}Cleanup Files${NC}"
+}
 
-read -p "ENTER RELEASE VERSION : " release
-if [ -f $OUTSRC/$MODEL-lucid-b$release.zip ]; then
-	rm -rf $OUTSRC/$MODEL-lucid-b$release.zip
-fi
-export KBUILD_BUILD_VERSION="$release"
-make -j$[$(grep -c ^processor /proc/cpuinfo)-1]
-
+function modules {
 # Copy Modules to Out Folder
 if [ -f $ZIMAGE/zImage ]; then
         find -name '*.ko' -exec cp -av {} $OUTSRC/system/lib/modules \;
@@ -36,7 +34,9 @@ else
 	echo -e "${RD}ERROR: COMPILE ERROR${NC}"
 	exit 0
 fi
+}
 
+function ramdisk {
 # Repack Ramdisk
 if [ ! -d $DUMP/ramdisk-$MODEL ]; then
         if [ ! -f boot.img ]; then
@@ -47,32 +47,36 @@ if [ ! -d $DUMP/ramdisk-$MODEL ]; then
         cp -ar $DUMP/ramdump-$MODEL/ramdisk $DUMP/ramdisk-$MODEL
         mv boot.img $DUMP/boot-$MODEL.img
 fi
+}
 
+function mkboot_xperia {
 # For Xperia Devices
-if [ -f README_Xperia ]; then
-	cd $DUMP/ramdisk-$MODEL
-	find * | cpio -H newc -o > $DUMP/ramdisk.cpio
-	cp $DUMP/ramdisk.cpio $DUMP/ramdump-$MODEL/ramdisk/sbin/
-	cd $DUMP/ramdump-$MODEL/ramdisk
-	find * | cpio -H newc -o | gzip > $DUMP/ramdisk-$MODEL.cpio.gz
-	if [ -f $ZIMAGE/zImage-dtb ]; then
-	$TOOLS/xperia/./dtbToolCM --force-v2 -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
-		if [ -f $DUMP/ramdisk-$MODEL.cpio.gz ]; then
+cd $DUMP/ramdisk-$MODEL
+#find * | cpio -H newc -o > $DUMP/ramdisk.cpio
+#cp $DUMP/ramdisk.cpio $DUMP/ramdump-$MODEL/ramdisk/sbin/
+#cd $DUMP/ramdump-$MODEL/ramdisk
+find * | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODEL.cpio.lz4
+if [ -f $ZIMAGE/zImage-dtb ]; then
+$TOOLS/xperia/./dtbToolCM --force-v2 -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
+	if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
 		$TOOLS/xperia/./mkbootimg --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
 		--base `cat $DUMP/ramdump-$MODEL/base_addr` \
-		--kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.gz \
+		--kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
 		--ramdisk_offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` \
 		-o $OUTSRC/boot.img \
 		--dt $DUMP/dt.img --tags_offset `cat $DUMP/ramdump-$MODEL/tags_offset`
-		echo -e "${GR}boot.img compiled${NC}"
+		echo -e "${GR}---------------------${NC}"
+		echo -e "${GR}| boot.img compiled |${NC}"
+		echo -e "${GR}---------------------${NC}"
         else
 	        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
 	        exit 0
-        	fi
-	fi
-else
-cd $DUMP/ramdisk-$MODEL
+        fi
+fi
+}
 
+function mkboot {
+cd $DUMP/ramdisk-$MODEL
 find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODEL.cpio.lz4
 
 	# Rebuilt Boot.img
@@ -83,7 +87,9 @@ find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODE
 	        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
 	        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
 	        --dt $DUMP/dt.img --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
-	        echo -e "${GR}boot.img compiled${NC}"
+	        echo -e "${GR}---------------------${NC}"
+		echo -e "${GR}| boot.img compiled |${NC}"
+		echo -e "${GR}---------------------${NC}"
 	        else
 		        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
 		        exit 0
@@ -94,20 +100,46 @@ find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODE
 	        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
 	        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
 	        --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
-	        echo -e "${GR}boot.img compiled${NC}"
+	        echo -e "${GR}---------------------${NC}"
+		echo -e "${GR}| boot.img compiled |${NC}"
+		echo -e "${GR}---------------------${NC}"
 	        else
 		        echo -e "${RD}ERROR: RAMDISK ERROR${NC}"
 		        exit 0
 	        fi
 	fi
+}
+
+read -p "ENTER RELEASE VERSION : " release
+if [ -f $OUTSRC/$MODEL-lucid-b$release.zip ]; then
+	rm -rf $OUTSRC/$MODEL-lucid-b$release.zip
 fi
+	cleanup
+	export KBUILD_BUILD_VERSION="$release"
+	make -j$[$(grep -c ^processor /proc/cpuinfo)-1]
+	read -p "COPY MODULES? (N/y): " value
+	case $value in
+		y)
+		modules
+		;;
+		*)
+		;;
+	esac
+	ramdisk
+	if [ -f README_Xperia ]; then
+		mkboot_xperia
+	else
+		mkboot
+	fi
 # Bump Boot.img for locked bootloaders
 if [ -f $ZIMAGE/msm8974-g2* ]; then
 cd $TOOLS
 
 python2 open_bump.py -a $OUTSRC/boot.img
 #mv ~/Downloads/g2/boot_bumped.img ~/Downloads/g2/boot.img
-echo -e "${GR}boot.img patched${NC}"
+echo -e "${GR}--------------------${NC}"
+echo -e "${GR}| boot.img patched |${NC}"
+echo -e "${GR}--------------------${NC}"
 fi
 cd $OUTSRC
 
@@ -115,4 +147,6 @@ MODULES=system/lib/modules/
 find $MODULES -iname "*.ko" -exec $TOOLCHAIN/$(ls $TOOLCHAIN | grep strip) --strip-unneeded {} \;
 
 zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~
-echo -e "${GR}Kernel Release $release is ready to flash${NC}"
+echo -e "${GR}--------------------------------------${NC}"
+echo -e "${GR}| Kernel Release $release is ready to flash |${NC}"
+echo -e "${GR}--------------------------------------${NC}"
