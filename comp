@@ -51,20 +51,23 @@ fi
 
 function mkboot_xperia {
 # For Xperia Devices
-cd $DUMP/ramdisk-$MODEL
+cd $DUMP
 #find * | cpio -H newc -o > $DUMP/ramdisk.cpio
 #cp $DUMP/ramdisk.cpio $DUMP/ramdump-$MODEL/ramdisk/sbin/
 #cd $DUMP/ramdump-$MODEL/ramdisk
-find * | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODEL.cpio.lz4
+$TOOLS/./mkbootfs $DUMP/ramdisk-$MODEL | gzip > $DUMP/ramdisk-$MODEL.cpio.gz
 if [ -f $ZIMAGE/zImage-dtb ]; then
 $TOOLS/xperia/./dtbToolCM --force-v2 -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
-	if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
-		$TOOLS/xperia/./mkbootimg --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
-		--base `cat $DUMP/ramdump-$MODEL/base_addr` \
-		--kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
-		--ramdisk_offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` \
-		-o $OUTSRC/boot.img \
-		--dt $DUMP/dt.img --tags_offset `cat $DUMP/ramdump-$MODEL/tags_offset`
+	if [ -f $DUMP/ramdisk-$MODEL.cpio.gz ]; then
+		$TOOLS/xperia/./mkbootimg --kernel $ZIMAGE/zImage-dtb \
+		--ramdisk $DUMP/ramdisk-$MODEL.cpio.gz \
+		--cmdline "androidboot.hardware=qcom user_debug=23 msm_rtb.filter=0x3b7 ehci-hcd.park=3 androidboot.bootdevice=msm_sdcc.1 vmalloc=300M dwc3.maximum_speed=high dwc3_msm.prop_chg_detect=Y" \
+		--base 0x00000000 \
+		--pagesize 2048 \
+		--ramdisk_offset 0x02000000 \
+		--tags_offset 0x01E00000 \
+		--dt $DUMP/dt.img \
+		-o $OUTSRC/boot.img 
 		echo -e "${GR}---------------------${NC}"
 		echo -e "${GR}| boot.img compiled |${NC}"
 		echo -e "${GR}---------------------${NC}"
@@ -83,10 +86,14 @@ find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODE
 	if [ -f $ZIMAGE/zImage-dtb ]; then
 	$TOOLS/./dtbTool -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/scripts/dtc/ $ZIMAGE/
 	        if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
-	        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
+	        $TOOLS/xperia/./mkbootimg --kernel $ZIMAGE/zImage \
+	        --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
 	        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
-	        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
-	        --dt $DUMP/dt.img --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
+	        --base `cat $DUMP/ramdump-$MODEL/base_addr` \
+	        --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
+	        --dt $DUMP/dt.img \
+	        --ramdisk_offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` \
+	        -o $OUTSRC/boot.img
 	        echo -e "${GR}---------------------${NC}"
 		echo -e "${GR}| boot.img compiled |${NC}"
 		echo -e "${GR}---------------------${NC}"
@@ -96,10 +103,13 @@ find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODE
 	        fi
 	else
 	       if [ -f $DUMP/ramdisk-$MODEL.cpio.lz4 ]; then
-	        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
+	        $TOOLS/./mkbootimg --kernel $ZIMAGE/zImage \
+	        --ramdisk $DUMP/ramdisk-$MODEL.cpio.lz4 \
 	        --cmdline "`cat $DUMP/ramdump-$MODEL/cmd_line`" \
-	        --base `cat $DUMP/ramdump-$MODEL/base_addr` --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
-	        --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` -o $OUTSRC/boot.img
+	        --base `cat $DUMP/ramdump-$MODEL/base_addr` \
+	        --pagesize `cat $DUMP/ramdump-$MODEL/page_size` \
+	        --offset `cat $DUMP/ramdump-$MODEL/ramdisk_offset` \
+	        -o $OUTSRC/boot.img
 	        echo -e "${GR}---------------------${NC}"
 		echo -e "${GR}| boot.img compiled |${NC}"
 		echo -e "${GR}---------------------${NC}"
@@ -111,8 +121,8 @@ find . | cpio -H newc -o | $TOOLS/lz4demo -c0 stdin stdout > $DUMP/ramdisk-$MODE
 }
 
 read -p "ENTER RELEASE VERSION : " release
-if [ -f $OUTSRC/$MODEL-lucid-b$release.zip ]; then
-	rm -rf $OUTSRC/$MODEL-lucid-b$release.zip
+if [ -f $OUTSRC/$MODEL-deft-b$release.zip ]; then
+	rm -rf $OUTSRC/$MODEL-deft-b$release.zip
 fi
 	cleanup
 	export KBUILD_BUILD_VERSION="$release"
@@ -146,7 +156,7 @@ cd $OUTSRC
 MODULES=system/lib/modules/
 find $MODULES -iname "*.ko" -exec $TOOLCHAIN/$(ls $TOOLCHAIN | grep strip) --strip-unneeded {} \;
 
-zip -r $MODEL-lucid-b$release.zip META-INF rev system boot.img -x \*~
+zip -r $MODEL-deft-b$release.zip META-INF rev system boot.img -x \*~
 echo -e "${GR}--------------------------------------${NC}"
 echo -e "${GR}| Kernel Release $release is ready to flash |${NC}"
 echo -e "${GR}--------------------------------------${NC}"
