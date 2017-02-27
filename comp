@@ -61,9 +61,10 @@ $TOOLS/xperia/./dtbToolCM --force-v2 -o $DUMP/dt.img -s 2048 -p ~/kernel/$MODEL/
 	if [ -f $DUMP/ramdisk-$MODEL.cpio.gz ]; then
 		$TOOLS/xperia/./mkbootimg --kernel $ZIMAGE/zImage-dtb \
 		--ramdisk $DUMP/ramdisk-$MODEL.cpio.gz \
-		--cmdline "androidboot.hardware=qcom user_debug=23 msm_rtb.filter=0x3b7 ehci-hcd.park=3 androidboot.bootdevice=msm_sdcc.1 vmalloc=300M dwc3.maximum_speed=high dwc3_msm.prop_chg_detect=Y" \
+		--cmdline "console=ttyHSL0,115200,n8 androidboot.hardware=qcom user_debug=23 msm_rtb.filter=0x3b7 ehci-hcd.park=3 androidboot.bootdevice=msm_sdcc.1 vmalloc=300M dwc3.maximum_speed=high dwc3_msm.prop_chg_detect=Y" \
 		--base 0x00000000 \
-		--pagesize 2048 \
+		--pagesize 4096 \
+		--kernel_offset 0x00008000 \
 		--ramdisk_offset 0x02000000 \
 		--tags_offset 0x01E00000 \
 		--dt $DUMP/dt.img \
