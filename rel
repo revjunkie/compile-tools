@@ -1,0 +1,41 @@
+#!/bin/bash
+
+GR='\033[1;32m'
+NC='\033[0m'
+RD='\033[1;4;31m'
+MODEL=$(basename ~+)
+TOOLS=~/kernel/comp-tools
+DUMP=~/kernel/out/zdump
+GCC=$(cat $DUMP/chain)
+TOOLCHAIN=~/kernel/toolchain/$GCC/bin
+OUTSRC=~/kernel/out/$MODEL-out
+ZIMAGE=~/kernel/$MODEL/arch/arm64/boot
+
+# Make dir
+[ ! -d ~/kernel/out ] && mkdir ~/kernel/out
+[ ! -d $DUMP ] && mkdir $DUMP
+[ ! -d $OUTSRC ] && mkdir $OUTSRC
+
+read -p "ENTER RELEASE VERSION : " release
+if [ -f $OUTSRC/$MODEL-deft-b$release.zip ]; then
+	rm -rf $OUTSRC/$MODEL-deft-b$release.zip
+fi
+export KBUILD_BUILD_VERSION="$release"
+make -j$[$(grep -c ^processor /proc/cpuinfo)-1]
+
+#find -name '*.ko' -exec cp -av {} $OUTSRC/modules/ \;
+#MODULES=$OUTSRC/modules/
+#find $MODULES -iname "*.ko" -exec $TOOLCHAIN/$(ls $TOOLCHAIN | grep strip) --strip-unneeded {} \;
+
+if [ -f $ZIMAGE/Image.gz-dtb ]; then
+	cp $ZIMAGE/Image.gz-dtb $OUTSRC/boot
+fi
+
+cd $OUTSRC
+
+zip -r $MODEL-deft-b$release.zip META-INF boot -x \*~
+echo -e "${GR}--------------------------------------${NC}"
+echo -e "${GR}| Kernel Release $release is ready to flash |${NC}"
+echo -e "${GR}--------------------------------------${NC}"
+
+
