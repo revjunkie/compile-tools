@@ -1,0 +1,45 @@
+#!/bin/bash
+
+GCC=$HOME/Project/tools/gcc-arm-8.2-2019.01-x86_64-aarch64-linux-gnu
+CLANG=$HOME/Project/tools/linux-x86/clang-r365631c
+GCC32=$HOME/Project/tools/arm-linux-androideabi-4.9
+PATH=$CLANG/bin:$GCC/bin:$PATH 
+#export CROSS_COMPILE=$GCC/bin/aarch64-linux-
+
+function build {
+make O=out -j$[$(nproc)-1] \
+		ARCH=arm64 \
+		CC="ccache clang" \
+		CLANG_TRIPLE=aarch64-linux-gnu- \
+		CROSS_COMPILE=aarch64-linux-gnu- \
+		CROSS_COMPILE_ARM32=$GCC32/bin/arm-linux-androideabi-
+}
+
+build
+
+MODEL=$(basename ~+)
+IMAGE=out/arch/arm64/boot
+DUMP=$HOME/Project/zip_files
+
+if [ ! -d "$DUMP" ]; then
+	mkdir $DUMP
+fi
+
+if [ ! -d "$DUMP/$MODEL" ]; then
+	mkdir $DUMP/$MODEL
+fi
+
+read -p "$(tput setaf 2)Build zip? (N/y): $(tput sgr 0)" value
+	case $value in
+		y)
+			read -p "ENTER RELEASE VERSION : " release
+			export KBUILD_BUILD_VERSION="$release"
+			build
+			cp $IMAGE/Image.gz-dtb $DUMP/$MODEL/boot/
+			cd $DUMP/$MODEL
+			zip -r $MODEL-deft-pie-r$release META-INF boot -x \*~
+			echo -e "$(tput setab 2 && tput bold)Build r$release is ready to flash$(tput sgr 0 && tput bel)"
+		;;
+		*)
+		;;
+	esac
