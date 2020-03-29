@@ -1,4 +1,26 @@
-#!/bin/bash
+#!/usr/bin/env bash
+GCC=$HOME/Project/tools/gcc-arm-none-eabi-4_9-2015q3
+CLANG=$HOME/Project/tools/linux-x86/clang-r377782b
+GCC32=$HOME/Project/tools/gcc-arm-none-eabi-9-2019-q4-major
+PATH=$CLANG/bin:$GCC/bin:$GCC32/bin:$HOME/bin:$PATH 
+COMPILER=arm-none-eabi-
+COMPILER32=arm-none-eabi-
+MODEL=$(basename ~+)
+BOOT=$PWD/out/arch/arm/boot
+IMAGE=$BOOT/zImage-dtb
+DUMP=$PWD/zip_files
+SOURCE=$PWD/source
+TOOLS=$HOME/Project/tools/compile-tools
+ANDROID=mm
 
-export ARCH=arm64
-export SUBARCH=arm64
+# tput color output
+RF=$(tput setaf 1)
+GF=$(tput setaf 2)
+GB=$(tput setab 2)
+BB=$(tput bold)
+NC=$(tput sgr 0)
+
+export KBUILD_OUTPUT=$PWD/out
+export ARCH=arm
+export SUBARCH=arm
+
