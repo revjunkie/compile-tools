@@ -2,7 +2,7 @@
 source ini
 
 # run "bld" to issue basic make command
-function build {
+build() {
 	pushd $SOURCE
 	if [[ $ARCH == arm64 ]] && [[ $CLANG ]]; then
 		make -j$[$(nproc)-1] \
@@ -10,7 +10,14 @@ function build {
 			CC="ccache clang" \
 			CLANG_TRIPLE=$COMPILER \
 			CROSS_COMPILE=$COMPILER \
-			CROSS_COMPILE_ARM32=$COMPILER32
+			CROSS_COMPILE_ARM32=$COMPILER32 \
+			AR=llvm-ar \
+			NM=llvm-nm \
+			OBJCOPY=llvm-objcopy \
+			OBJDUMP=llvm-objdump \
+			STRIP=llvm-strip \
+			LD=ld.lld
+
 	else
 		make -j$[$(nproc)-1] \
 			CROSS_COMPILE=$COMPILER
@@ -19,7 +26,7 @@ function build {
 }
 
 # run bld make-confid to generate/regenerate config
-function make-config {
+make-config() {
 	if [ ! -f $PWD/out/.config ]; then
 		read -p "${GF}Enter *_defconfig: ${NC}" value
 		if [ ! -f $SOURCE/arch/$ARCH/configs/$value ]; then
@@ -31,51 +38,59 @@ function make-config {
 		fi
 	else
 		read -p "${GF}Edit config? (N/y): ${NC}" value
-			case $value in
-				y | Y)
-					pushd $SOURCE
-					make menuconfig
-					popd
-				;;
-				*)
-				;;
-			esac
-	fi
-}
-
-# run "bld make-clean" to clean out folder
-function make-clean {
-	pushd $SOURCE
-	make clean
-	popd
-}
-
-function make-dt {
-	$TOOLS/xperia/./dtbtool --force-v2 \
-	-o $DUMP/dt.img -s 2048 \
-	-p $PWD/out/scripts/dtc/ $BOOT/
-}
-
-# run "bld make-zip" to compile flashable zip
-function make-zip {
-	read -p "${GF}${BB}Build zip? (N/y): ${NC}" value
 		case $value in
 			y | Y)
-				read -p "ENTER RELEASE VERSION : " release
-				export KBUILD_BUILD_VERSION="$release"
-				build
-				[[ $(ls $SOURCE | grep -c "Xperia") -eq 1 ]] && make-dt
-				cp $IMAGE $DUMP/
-				pushd $DUMP
-				zip -r $OLDPWD/deft-$MODEL-$ANDROID-r$release *
-				echo -e "${GB}${BB} Build r$release is ready to flash \a${NC}"
+				pushd $SOURCE
+				make menuconfig
 				popd
 			;;
 			*)
 			;;
 		esac
+	fi
 }
 
+# run "bld make-clean" to clean out folder
+make-clean() {
+	pushd $SOURCE
+	make clean
+	popd
+}
+
+make-module() {
+	pushd out
+	find -iname '*.ko' -exec cp {} $DUMP/modules/system/lib/modules/ \;
+	popd
+}
+
+make-dt() {
+	$TOOLS/./$DTBTOOL \
+	-o $DUMP/dt.img -s $PAGESIZE \
+	-p $PWD/out/scripts/dtc/ $DTOUT
+}
+
+# run "bld make-zip" to compile flashable zip
+make-zip() {
+	read -p "${GF}${BB}Build zip? (N/y): ${NC}" value
+	case $value in
+		y | Y)
+			read -p "ENTER RELEASE VERSION : " release
+			export KBUILD_BUILD_VERSION="$release"
+			build
+			[[ $ARCH == arm ]] && make-dt
+			[[ $(cat $DUMP/anykernel.sh | grep -c do.modules=1) -eq 1 ]] && make-module
+			cp $IMAGE $DUMP/
+			pushd $DUMP
+			zip -r $OLDPWD/deft-$MODEL-$ANDROID-r$release *
+			echo -e "${GB}${BB} Build r$release is ready to flash \a${NC}"
+			popd
+		;;
+		*)
+		;;
+	esac
+}
+
+[[ ! -d "$PWD/out" ]] && mkdir $PWD/out
 [[ ! -d "$DUMP" ]] && mkdir $DUMP
 
 if [ $@ ]; then
