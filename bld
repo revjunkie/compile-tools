@@ -20,12 +20,12 @@ build() {
 
 	else
 		make -j$[$(nproc)-1] \
-			CROSS_COMPILE=$COMPILER
+			CROSS_COMPILE=$COMPILER32
 	fi
 	popd
 }
 
-# run bld make-confid to generate/regenerate config
+# run bld make-config to generate/regenerate config
 make-config() {
 	if [ ! -f $PWD/out/.config ]; then
 		read -p "${GF}Enter *_defconfig: ${NC}" value
@@ -81,7 +81,7 @@ make-zip() {
 			[[ $(cat $DUMP/anykernel.sh | grep -c do.modules=1) -eq 1 ]] && make-module
 			cp $IMAGE $DUMP/
 			pushd $DUMP
-			zip -r $OLDPWD/deft-$MODEL-$ANDROID-r$release *
+			zip -r $OLDPWD/$KNAME-$MODEL-$ANDROID-r$release.zip *
 			echo -e "${GB}${BB} Build r$release is ready to flash \a${NC}"
 			popd
 		;;
